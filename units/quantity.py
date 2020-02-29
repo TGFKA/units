@@ -49,9 +49,9 @@ class Quantity:
 
         if len(args) == 1:
             if isinstance(*args, Real):
-                return factors, *args
+                return (factors, *args)
 
-            return *args, value
+            return (*args, value)
 
         if len(args) == 2:
             if isinstance(args[0], Real):
@@ -117,6 +117,17 @@ floating point precision. Use 'a/b' or (a, b) instead."""
 
         return wrapped
 
+    def restictive_operator(method):
+        @wraps(method)
+        def wrapped(a, b):
+            if not a.same_unit(b):
+                raise UnitError(
+                    f'operation not supported for units "{a}" and "{b}"')
+
+            return method(a, b)
+
+        return wrapped
+
     def __repr__(self):
         if self.is_scalar:
             return repr(self.value)
@@ -152,11 +163,8 @@ floating point precision. Use 'a/b' or (a, b) instead."""
         return b.__truediv__(a)
 
     @quantity_operator
+    @restictive_operator
     def __add__(a, b):
-        if not a.same_unit(b):
-            raise UnitError(
-                f'Operation not supported for units {a}, {b}')
-
         return Quantity(
             value=(a.value + b.value),
             factors=a.vector)
@@ -164,17 +172,18 @@ floating point precision. Use 'a/b' or (a, b) instead."""
     __radd__ = __add__
 
     @quantity_operator
+    @restictive_operator
     def __sub__(a, b):
-        if not a.same_unit(b):
-            raise UnitError(
-                f'Operation not supported for units {a}, {b}')
-
         return Quantity(
             value=(a.value - b.value),
             factors=a.vector)
 
-    def __rsub__(a, b):
-        return b.__sub__(a)
+    @quantity_operator
+    @restictive_operator
+    def __rsub__(b, a):
+        return Quantity(
+            value=(a.value - b.value),
+            factors=b.vector)
 
     def __neg__(self):
         return Quantity(value=-self.value, factors=self.factors)
