@@ -1,7 +1,7 @@
 from collections import defaultdict
 from fractions import Fraction
 from numbers import Real
-from functools import wraps, reduce
+from functools import wraps, total_ordering, reduce
 from operator import xor
 
 import warnings
@@ -27,6 +27,7 @@ class UnitError(Exception):
     pass
 # ------
 
+@total_ordering
 class Quantity:
     def __init__(self, *args, factors=None, value=None):
         factors, value = Quantity._parse_args(args, factors, value)
@@ -195,6 +196,11 @@ floating point precision. Use 'a/b' or (a, b) instead."""
     @quantity_operator
     def __eq__(a, b):
         return a.same_unit(b) and a.value == b.value
+
+    @quantity_operator
+    @restictive_operator
+    def __lt__(a, b):
+        return a.value < b.value
 
     def __hash__(self):
         # credit goes to Tim Gerlach
