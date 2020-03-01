@@ -64,12 +64,12 @@ class TestQuantity(TestCase):
         self.assertNotEqual(m, km/100)
         self.assertNotEqual(m, m * km/1000)
 
-        self.assertAlmostEqual(0.1*m, l**(1, 3))
-        self.assertAlmostEqual(0.1*m, l**'1/3')
+        self.assertAlmostEqual(0.1*m, l**(1, 3), delta=0.001*m)
+        self.assertAlmostEqual(0.1*m, l**'1/3', delta=0.001*m)
         self.assertNotEqual(0.11*m, l**'1/3')
 
         self.assertEqual(0, 1 - Quantity(1))
-        self.assertEqual(zero, 1 - Quantity(1))
+        self.assertNotEqual(zero, 1 - Quantity(1))
 
         self.assertAlmostEqual(Quantity(2) ** 3.5, 11.31370, delta=0.001)
 
@@ -85,8 +85,11 @@ class TestQuantity(TestCase):
         self.assertRaises(UnitError, lambda: m**3 + m)
         self.assertRaises(UnitError, lambda: N + J)
 
-        with self.assertWarns(Warning):
-            c = Quantity({m: 0.3})
+        self.assertTrue(m < km)
+        self.assertTrue(1 <= km/m)
+
+        self.assertRaises(UnitError, lambda: m > s)
+        self.assertWarns(Warning, lambda: Quantity({m: 0.3}))
 
 
 

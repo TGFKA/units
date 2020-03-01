@@ -1,7 +1,7 @@
 from collections import defaultdict
 from fractions import Fraction
 from numbers import Real
-from functools import wraps, reduce
+from functools import wraps, total_ordering, reduce
 from operator import xor
 
 import warnings
@@ -10,11 +10,14 @@ import warnings
 __all__ = 'Quantity', 'UnitError'
 
 # --- TODO get it out of here ---
+
+
 def repr_fraction(f: Fraction):
     if f.denominator == 1:
         return str(f.numerator)
 
     return f'{f.numerator}/{f.denominator}'
+
 
 def repr_factor(item):
     dim, exp = item
@@ -23,9 +26,11 @@ def repr_factor(item):
 
     return f'{dim}^{repr_fraction(exp)}'
 
+
 class UnitError(Exception):
     pass
 # ------
+
 
 def quantity_operator(method):
     @wraps(method)
@@ -34,7 +39,8 @@ def quantity_operator(method):
 
     return wrapped
 
-def restictive_operator(method):
+
+def restrictive_operator(method):
     @wraps(method)
     def wrapped(a, b):
         if not a.same_unit(b):
@@ -45,6 +51,8 @@ def restictive_operator(method):
 
     return wrapped
 
+
+@total_ordering
 class Quantity:
     def __init__(self, *args, factors=None, value=None):
         factors, value = Quantity._parse_args(args, factors, value)
@@ -80,7 +88,7 @@ class Quantity:
         raise ValueError(f'Expected at most two arguments, got {len(args)}')
 
     def _update_vector(self, qty, exponent=1):
-        self.value *= float(qty.value**exponent)
+        self.value *= qty.value**exponent
         for dimension, dim_exponent in qty.vector.items():
             self.vector[dimension] += exponent*dim_exponent
 
@@ -94,7 +102,6 @@ class Quantity:
 
         return self.value
 
-    # TODO make __float__
     def _remove_zeroes(self):
         for dimension in self.vector.copy():
             if self.vector[dimension] == 0:
@@ -118,7 +125,7 @@ floating point precision. Use 'a/b' or (a, b) instead."""
 
         try:
             return Fraction(*arg)
-        
+
         except (TypeError, ValueError):
             return Fraction(arg)
 
@@ -128,7 +135,6 @@ floating point precision. Use 'a/b' or (a, b) instead."""
             return arg
 
         return cls(arg)
-
 
     def __repr__(self):
         if self.is_scalar:
@@ -168,7 +174,7 @@ floating point precision. Use 'a/b' or (a, b) instead."""
         return other.__truediv__(self)
 
     @quantity_operator
-    @restictive_operator
+    @restrictive_operator
     def __add__(self, other):
         return Quantity(
             value=(self.value + other.value),
@@ -177,14 +183,14 @@ floating point precision. Use 'a/b' or (a, b) instead."""
     __radd__ = __add__
 
     @quantity_operator
-    @restictive_operator
+    @restrictive_operator
     def __sub__(self, other):
         return Quantity(
             value=(self.value - other.value),
             factors=self.vector)
 
     @quantity_operator
-    @restictive_operator
+    @restrictive_operator
     def __rsub__(self, other):
         return Quantity(
             value=(other.value - self.value),
@@ -197,9 +203,19 @@ floating point precision. Use 'a/b' or (a, b) instead."""
     def __eq__(self, other):
         return self.same_unit(other) and self.value == other.value
 
+    @quantity_operator
+    @restrictive_operator
+    def __lt__(self, other):
+        return self.value < other.value
+
+    def __round__(self, places):
+        return Quantity(value=round(self.value, places), factors=self.vector)
+
+    def __abs__(self):
+        return Quantity(value=abs(self.value), factors=self.vector)
+
     def __hash__(self):
-        # credit goes to Tim Gerlach
         vector_hash = reduce(xor,
-            (hash(dim)^hash(exp) for dim, exp in self.vector.items()))
+            (hash(dim) ^ hash(exp) for dim, exp in self.vector.items()))
 
         return hash(self.value) ^ vector_hash
