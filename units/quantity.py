@@ -3,7 +3,7 @@ from fractions import Fraction
 from numbers import Real
 from functools import wraps
 
-from warnings import warn
+import warnings
 
 
 __all__ = 'Quantity', 'UnitError'
@@ -95,7 +95,7 @@ class Quantity:
             message = """
 We strongly advice not to use floats as exponents due to
 floating point precision. Use 'a/b' or (a, b) instead."""
-            warn(message, RuntimeWarning)
+            warnings.warn(message, RuntimeWarning)
 
         try:
             return Fraction(*arg)
@@ -145,6 +145,9 @@ floating point precision. Use 'a/b' or (a, b) instead."""
                 raise UnitError(f'expected scalar exponent, got "{exponent}"')
 
             exponent = exponent.value
+
+        if self.is_scalar:
+            return Quantity(value=self.value**exponent)
 
         return Quantity(factors=[(self, exponent)])
 
