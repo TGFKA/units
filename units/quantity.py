@@ -1,7 +1,8 @@
 from collections import defaultdict
 from fractions import Fraction
 from numbers import Real
-from functools import wraps
+from functools import wraps, reduce
+from operator import xor
 
 import warnings
 
@@ -190,3 +191,14 @@ floating point precision. Use 'a/b' or (a, b) instead."""
 
     def __neg__(self):
         return Quantity(value=-self.value, factors=self.factors)
+
+    @quantity_operator
+    def __eq__(a, b):
+        return a.same_unit(b) and a.value == b.value
+
+    def __hash__(self):
+        # credit goes to Tim Gerlach
+        vector_hash = reduce(xor,
+            (hash(dim)^hash(exp) for dim, exp in self.vector.items()))
+
+        return hash(self.value) ^ vector_hash
