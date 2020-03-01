@@ -27,6 +27,24 @@ class UnitError(Exception):
     pass
 # ------
 
+def quantity_operator(method):
+    @wraps(method)
+    def wrapped(self, *args):
+        return method(self, *map(Quantity.ensure_qty, args))
+
+    return wrapped
+
+def restictive_operator(method):
+    @wraps(method)
+    def wrapped(a, b):
+        if not a.same_unit(b):
+            raise UnitError(
+                f'operation not supported for units "{a}" and "{b}"')
+
+        return method(a, b)
+
+    return wrapped
+
 class Quantity:
     def __init__(self, *args, factors=None, value=None):
         factors, value = Quantity._parse_args(args, factors, value)
@@ -111,23 +129,6 @@ floating point precision. Use 'a/b' or (a, b) instead."""
 
         return cls(arg)
 
-    def quantity_operator(method):
-        @wraps(method)
-        def wrapped(self, *args):
-            return method(self, *map(Quantity.ensure_qty, args))
-
-        return wrapped
-
-    def restictive_operator(method):
-        @wraps(method)
-        def wrapped(a, b):
-            if not a.same_unit(b):
-                raise UnitError(
-                    f'operation not supported for units "{a}" and "{b}"')
-
-            return method(a, b)
-
-        return wrapped
 
     def __repr__(self):
         if self.is_scalar:
@@ -137,8 +138,8 @@ floating point precision. Use 'a/b' or (a, b) instead."""
         return f'{self.value} {unitstr}'
 
     @quantity_operator
-    def same_unit(a, b):
-        return a.vector == b.vector
+    def same_unit(self, other):
+        return self.vector == other.vector
 
     def __pow__(self, exponent):
         if isinstance(exponent, Quantity):
@@ -153,48 +154,48 @@ floating point precision. Use 'a/b' or (a, b) instead."""
         return Quantity(factors=[(self, exponent)])
 
     @quantity_operator
-    def __mul__(a, b):
-        return Quantity(factors=[(a, 1), (b, 1)])
+    def __mul__(self, other):
+        return Quantity(factors=[(self, 1), (other, 1)])
 
     __rmul__ = __mul__
 
     @quantity_operator
-    def __truediv__(a, b):
-        return Quantity(factors=[(a, 1), (b, -1)])
+    def __truediv__(self, other):
+        return Quantity(factors=[(self, 1), (other, -1)])
 
     @quantity_operator
-    def __rtruediv__(a, b):
-        return b.__truediv__(a)
+    def __rtruediv__(self, other):
+        return other.__truediv__(self)
 
     @quantity_operator
     @restictive_operator
-    def __add__(a, b):
+    def __add__(self, other):
         return Quantity(
-            value=(a.value + b.value),
-            factors=a.vector)
+            value=(self.value + other.value),
+            factors=self.vector)
 
     __radd__ = __add__
 
     @quantity_operator
     @restictive_operator
-    def __sub__(a, b):
+    def __sub__(self, other):
         return Quantity(
-            value=(a.value - b.value),
-            factors=a.vector)
+            value=(self.value - other.value),
+            factors=self.vector)
 
     @quantity_operator
     @restictive_operator
-    def __rsub__(b, a):
+    def __rsub__(self, other):
         return Quantity(
-            value=(a.value - b.value),
-            factors=b.vector)
+            value=(other.value - self.value),
+            factors=self.vector)
 
     def __neg__(self):
-        return Quantity(value=-self.value, factors=self.factors)
+        return Quantity(value=-self.value, factors=self.vector)
 
     @quantity_operator
-    def __eq__(a, b):
-        return a.same_unit(b) and a.value == b.value
+    def __eq__(self, other):
+        return self.same_unit(other) and self.value == other.value
 
     def __hash__(self):
         # credit goes to Tim Gerlach

@@ -6,7 +6,7 @@ __all__ = 'Dimension',
 class Dimension(Quantity):
     def __init__(self, name, fullname):
         self.name = name
-        self.fullname = name
+        self.fullname = fullname
 
         self.vector = {self: Fraction(1)}
         self.value = 1
