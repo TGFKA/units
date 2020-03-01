@@ -91,6 +91,13 @@ class TestQuantity(TestCase):
         self.assertRaises(UnitError, lambda: m > s)
         self.assertWarns(Warning, lambda: Quantity({m: 0.3}))
 
+    def test_compound(self):
+        inch = Quantity({m: 1}, 0.0254)
+        sq_inch = Quantity({inch: 2})
+
+        self.assertEqual(inch * inch, sq_inch)
+        self.assertEqual(2* sq_inch**'1/2', 2*inch)
+
 
 
 class TestDimension(TestCase):

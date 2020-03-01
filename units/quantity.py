@@ -10,17 +10,114 @@ from .exceptions import *
 
 __all__ = 'Quantity',
 
+
+def _convert_if_dict(factors):
+    """
+    Utility Method for Quantity
+    Expects Iterables of the form ((k, v), (k2, v2), ...),
+    or dictionaries. If a dictionary is passed, it will
+    be converted to the Iterable form
+    """
+    if isinstance(factors, dict):  # not very safe FIXME
+        yield from factors.items()
+
+    else:
+        yield from factors
+
+
+def _ensure_fraction(arg):
+    """
+    Utility Method for Quantity
+    Converts numeric types and (numerator, denominator) 
+    pairs into "Fraction"s
+    Warns when there might be precision problems caused
+    by a floating-point input
+    """
+    if isinstance(arg, float):
+        message = "We strongly advice not to use floats as " \
+            "exponents due to floating point precision. Consider " \
+            "using 'a/b' or (a, b) instead."
+        warnings.warn(message, RuntimeWarning, stacklevel=3)
+
+    try:
+        return Fraction(*arg)
+
+    except (TypeError, ValueError):
+        return Fraction(arg)
+
+
+def _repr_fraction(f: Fraction):
+    """
+    Utility Method for Quantity
+    Stringifies Fractions
+    """
+    if f.denominator == 1:
+        return str(f.numerator)
+
+    return f'{f.numerator}/{f.denominator}'
+
+
+def _repr_power(item):
+    """
+    Utility Method for Quantity
+    Stringifies pairs of dimensions and exponents
+    """
+    dim, exp = item
+    if exp == 1:
+        return repr(dim)
+
+    return f'{dim!r}^{_repr_fraction(exp)}'
+
+
+def quantity_operator(method):
+    """
+    Utility Decorator for Quantity
+    Decorates member methods to ensure that all
+    arguments are instances of Quantity
+    """
+    @wraps(method)
+    def wrapper(self, *args):
+        return method(self, *map(Quantity._ensure_instance, args))
+
+    return wrapper
+
+
+def restrictive_operator(method):
+    """
+    Utility Decorator for Quantity
+    Decorates member methods to ensure that the
+    passed quantities' have the same unit dimensions
+
+    A restrictive_operator is also a quantity_operator
+    """
+    @wraps(method)
+    @quantity_operator
+    def wrapper(a, b):
+        if not a.same_unit(b):
+            raise UnitError(
+                f'operation not supported for units "{a}" and "{b}"')
+
+        return method(a, b)
+
+    return wrapper
+
+
 @total_ordering
 class Quantity:
+    """
+    Quantity Class
+    Represent a value with a unit
+    """
+
     def __init__(self, *args, factors=None, value=None):
         factors, value = Quantity._parse_args(args, factors, value)
         self.value = value
         self.vector = defaultdict(Fraction)
 
-        for factor, exponent in Quantity._convert_if_dict(factors):
+        for factor, exponent in _convert_if_dict(factors):
             self._update_vector(
                 factor,
-                Quantity._ensure_fraction(exponent))
+                _ensure_fraction(exponent))
 
         self._remove_zeroes()
 
@@ -65,74 +162,19 @@ class Quantity:
             if self.vector[dimension] == 0:
                 self.vector.pop(dimension)
 
-    @staticmethod
-    def _convert_if_dict(factors):
-        if isinstance(factors, dict):  # not very safe FIXME
-            yield from factors.items()
-
-        else:
-            yield from factors
-
-    @staticmethod
-    def _ensure_fraction(arg):
-        if isinstance(arg, float):
-            message = "We strongly advice not to use floats as " \
-            "exponents due to floating point precision. Consider " \
-            "using 'a/b' or (a, b) instead."
-            warnings.warn(message, RuntimeWarning)
-
-        try:
-            return Fraction(*arg)
-
-        except (TypeError, ValueError):
-            return Fraction(arg)
-
     @classmethod
-    def ensure_qty(cls, arg):
+    def _ensure_instance(cls, arg):
         if isinstance(arg, cls):
             return arg
 
         return cls(arg)
 
-    @staticmethod
-    def repr_fraction(f: Fraction):
-        if f.denominator == 1:
-            return str(f.numerator)
-
-        return f'{f.numerator}/{f.denominator}'
-
-    @staticmethod
-    def repr_factor(item):
-        dim, exp = item
-        if exp == 1:
-            return repr(dim)
-
-        return f'{dim}^{Quantity.repr_fraction(exp)}'
-
     def __repr__(self):
         if self.is_scalar:
             return repr(self.value)
 
-        unitstr = '*'.join(map(self.repr_factor, self.vector.items()))
-        return f'{self.value} {unitstr}'
-
-    def quantity_operator(method):
-        @wraps(method)
-        def wrapped(self, *args):
-            return method(self, *map(Quantity.ensure_qty, args))
-
-        return wrapped
-
-    def restrictive_operator(method):
-        @wraps(method)
-        def wrapped(a, b):
-            if not a.same_unit(b):
-                raise UnitError(
-                    f'operation not supported for units "{a}" and "{b}"')
-
-            return method(a, b)
-
-        return wrapped
+        unitstr = '*'.join(map(_repr_power, self.vector.items()))
+        return f'{self.value!r} {unitstr}'
 
     @quantity_operator
     def same_unit(self, other):
@@ -149,6 +191,13 @@ class Quantity:
             return Quantity(value=self.value**exponent)
 
         return Quantity(factors=[(self, exponent)])
+    
+    def __rpow__(self, base):
+        if not self.is_scalar:
+            raise UnitError(f'expected scalar exponent, got "{self}"')
+
+        return base ** self.value
+
 
     @quantity_operator
     def __mul__(self, other):
@@ -164,27 +213,24 @@ class Quantity:
     def __rtruediv__(self, other):
         return other.__truediv__(self)
 
-    @quantity_operator
     @restrictive_operator
     def __add__(self, other):
         return Quantity(
-            value=(self.value + other.value),
+            value=self.value + other.value,
             factors=self.vector)
 
     __radd__ = __add__
 
-    @quantity_operator
     @restrictive_operator
     def __sub__(self, other):
         return Quantity(
-            value=(self.value - other.value),
+            value=self.value - other.value,
             factors=self.vector)
 
-    @quantity_operator
     @restrictive_operator
     def __rsub__(self, other):
         return Quantity(
-            value=(other.value - self.value),
+            value=other.value - self.value,
             factors=self.vector)
 
     def __neg__(self):
@@ -194,7 +240,6 @@ class Quantity:
     def __eq__(self, other):
         return self.same_unit(other) and self.value == other.value
 
-    @quantity_operator
     @restrictive_operator
     def __lt__(self, other):
         return self.value < other.value
@@ -210,6 +255,3 @@ class Quantity:
             (hash(dim) ^ hash(exp) for dim, exp in self.vector.items()))
 
         return hash(self.value) ^ vector_hash
-
-    quantity_operator = staticmethod(quantity_operator)
-    restrictive_operator = staticmethod(restrictive_operator)
