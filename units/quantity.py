@@ -63,7 +63,7 @@ class Quantity:
         raise ValueError(f'Expected at most two arguments, got {len(args)}')
 
     def _update_vector(self, qty, exponent=1):
-        self.value *= float(qty.value**exponent)
+        self.value *= qty.value**exponent
         for dimension, dim_exponent in qty.vector.items():
             self.vector[dimension] += exponent*dim_exponent
 
@@ -77,7 +77,6 @@ class Quantity:
 
         return self.value
 
-    # TODO make __float__
     def _remove_zeroes(self):
         for dimension in self.vector.copy():
             if self.vector[dimension] == 0:
