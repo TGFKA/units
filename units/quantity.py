@@ -6,51 +6,9 @@ from operator import xor
 
 import warnings
 
+from .exceptions import *
 
-__all__ = 'Quantity', 'UnitError'
-
-# --- TODO get it out of here ---
-
-
-def repr_fraction(f: Fraction):
-    if f.denominator == 1:
-        return str(f.numerator)
-
-    return f'{f.numerator}/{f.denominator}'
-
-
-def repr_factor(item):
-    dim, exp = item
-    if exp == 1:
-        return repr(dim)
-
-    return f'{dim}^{repr_fraction(exp)}'
-
-
-class UnitError(Exception):
-    pass
-# ------
-
-
-def quantity_operator(method):
-    @wraps(method)
-    def wrapped(self, *args):
-        return method(self, *map(Quantity.ensure_qty, args))
-
-    return wrapped
-
-
-def restrictive_operator(method):
-    @wraps(method)
-    def wrapped(a, b):
-        if not a.same_unit(b):
-            raise UnitError(
-                f'operation not supported for units "{a}" and "{b}"')
-
-        return method(a, b)
-
-    return wrapped
-
+__all__ = 'Quantity',
 
 @total_ordering
 class Quantity:
@@ -118,9 +76,9 @@ class Quantity:
     @staticmethod
     def _ensure_fraction(arg):
         if isinstance(arg, float):
-            message = """
-We strongly advice not to use floats as exponents due to
-floating point precision. Use 'a/b' or (a, b) instead."""
+            message = "We strongly advice not to use floats as " \
+            "exponents due to floating point precision. Consider " \
+            "using 'a/b' or (a, b) instead."
             warnings.warn(message, RuntimeWarning)
 
         try:
@@ -136,12 +94,45 @@ floating point precision. Use 'a/b' or (a, b) instead."""
 
         return cls(arg)
 
+    @staticmethod
+    def repr_fraction(f: Fraction):
+        if f.denominator == 1:
+            return str(f.numerator)
+
+        return f'{f.numerator}/{f.denominator}'
+
+    @staticmethod
+    def repr_factor(item):
+        dim, exp = item
+        if exp == 1:
+            return repr(dim)
+
+        return f'{dim}^{Quantity.repr_fraction(exp)}'
+
     def __repr__(self):
         if self.is_scalar:
             return repr(self.value)
 
-        unitstr = '*'.join(map(repr_factor, self.vector.items()))
+        unitstr = '*'.join(map(self.repr_factor, self.vector.items()))
         return f'{self.value} {unitstr}'
+
+    def quantity_operator(method):
+        @wraps(method)
+        def wrapped(self, *args):
+            return method(self, *map(Quantity.ensure_qty, args))
+
+        return wrapped
+
+    def restrictive_operator(method):
+        @wraps(method)
+        def wrapped(a, b):
+            if not a.same_unit(b):
+                raise UnitError(
+                    f'operation not supported for units "{a}" and "{b}"')
+
+            return method(a, b)
+
+        return wrapped
 
     @quantity_operator
     def same_unit(self, other):
@@ -221,4 +212,4 @@ floating point precision. Use 'a/b' or (a, b) instead."""
         return hash(self.value) ^ vector_hash
 
     quantity_operator = staticmethod(quantity_operator)
-    restictive_operator = staticmethod(restictive_operator)
+    restrictive_operator = staticmethod(restrictive_operator)

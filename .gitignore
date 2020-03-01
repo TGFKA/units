@@ -1,2 +1,4 @@
 units/__pycache__
 *.swp
+*tags
+__pycache__
