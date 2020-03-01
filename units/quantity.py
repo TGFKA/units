@@ -1,6 +1,6 @@
 from collections import defaultdict
 from fractions import Fraction
-from numbers import Real
+from numbers import Number
 from functools import wraps, total_ordering, reduce
 from operator import xor
 
@@ -50,13 +50,13 @@ class Quantity:
             return factors, value
 
         if len(args) == 1:
-            if isinstance(*args, Real):
+            if isinstance(*args, Number):
                 return (factors, *args)
 
             return (*args, value)
 
         if len(args) == 2:
-            if isinstance(args[0], Real):
+            if isinstance(args[0], Number):
                 return reversed(args)
             return args
 
