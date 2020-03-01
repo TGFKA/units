@@ -207,3 +207,6 @@ floating point precision. Use 'a/b' or (a, b) instead."""
             (hash(dim)^hash(exp) for dim, exp in self.vector.items()))
 
         return hash(self.value) ^ vector_hash
+
+    quantity_operator = staticmethod(quantity_operator)
+    restictive_operator = staticmethod(restictive_operator)
