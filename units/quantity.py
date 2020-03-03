@@ -34,10 +34,10 @@ def _ensure_fraction(arg):
     by a floating-point input
     """
     if isinstance(arg, float):
-        message = "We strongly advice not to use floats as " \
+        message = "We strongly advice against using floats as " \
             "exponents due to floating point precision. Consider " \
             "using 'a/b' or (a, b) instead."
-        warnings.warn(message, RuntimeWarning, stacklevel=3)
+        warnings.warn(message, RuntimeWarning, stacklevel=4)
 
     try:
         return Fraction(*arg)
@@ -86,7 +86,7 @@ def restrictive_operator(method):
     """
     Utility Decorator for Quantity
     Decorates member methods to ensure that the
-    passed quantities' have the same unit dimensions
+    passed quantities have the same unit dimensions
 
     A restrictive_operator is also a quantity_operator
     """
@@ -143,7 +143,7 @@ class Quantity:
         raise ValueError(f'Expected at most two arguments, got {len(args)}')
 
     def _update_vector(self, qty, exponent=1):
-        self.value *= qty.value**exponent
+        self.value *= qty.value**float(exponent)
         for dimension, dim_exponent in qty.vector.items():
             self.vector[dimension] += exponent*dim_exponent
 
@@ -155,7 +155,7 @@ class Quantity:
         if not self.is_scalar:
             raise UnitError(f'Unit "{self}" is not scalar')
 
-        return self.value
+        return float(self.value)
 
     def _remove_zeroes(self):
         for dimension in self.vector.copy():
@@ -244,7 +244,7 @@ class Quantity:
     def __lt__(self, other):
         return self.value < other.value
 
-    def __round__(self, places):
+    def __round__(self, places=0):
         return Quantity(value=round(self.value, places), factors=self.vector)
 
     def __abs__(self):
